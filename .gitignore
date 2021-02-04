@@ -13,5 +13,7 @@ debug.log
 # Lock file
 package-lock.json
 
+README.md
+
 # Dunno
 .vscode
