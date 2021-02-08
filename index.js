@@ -2,15 +2,15 @@ const { create, Client } = require('@open-wa/wa-automate')
 const { color, options } = require('./tools')
 const { ind, eng } = require('./message/text/lang/')
 const { loader } = require('./function')
-const figlet = require('figlet')
 const msgHandler = require('./message')
 const config = require('./config.json')
 const ownerNumber = config.ownerBot
 const fs = require('fs-extra')
 const { groupLimit, memberLimit } = require('./database/bot/setting.json')
 
+
 const start = async (akie = new Client()) => {
-    console.log(color(figlet.textSync('AkieBot', 'Larry 3D'), 'cyan'))
+
     console.log(color('=> Bot successfully loaded! Database:', 'yellow'), color(loader.getAllDirFiles('./database').length), color('Library:', 'yellow'), color(loader.getAllDirFiles('./lib').length), color('Function:', 'yellow'), color(loader.getAllDirFiles('./function').length))
     console.log('[AKIE]', color('AkieBot is now online!'))
     console.log(color('[DEV]', 'cyan'), color('Welcome back, Owner! Hope you are doing well~', 'magenta'))
@@ -61,8 +61,7 @@ const start = async (akie = new Client()) => {
                 }
             })
         // Below is an watched version but it will affect the performance
-        require('./message/index.js')(akie, message)
-        // msgHandler(akie, message)
+        msgHandler(akie, message)
     })
 
     // Block person who called bot
@@ -97,3 +96,8 @@ const start = async (akie = new Client()) => {
 create(options(start))
     .then((akie) => start(akie))
     .catch((err) => console.error(err))
+
+
+
+
+

@@ -27,12 +27,12 @@
     "chalk": "^4.1.0",
     "cheerio": "^1.0.0-rc.5",
     "emoji-unicode": "^2.0.1",
+    "express": "^4.17.1",
     "figlet": "^1.5.0",
     "file-type": "^16.2.0",
     "form-data": "^3.0.0",
     "fs-extra": "^9.0.1",
     "is-porn": "^0.9.0",
-    "jxdl-core": "^0.1.11-beta.3",
     "mathjs": "^8.1.1",
     "moment-timezone": "^0.5.31",
     "ms": "^2.1.3",
@@ -45,12 +45,16 @@
     "node-fetch": "^2.6.1",
     "node-gtts": "^2.0.2",
     "parse-ms": "^2.1.0",
+    "remote-file-size": "^3.0.5",
     "sagiri": "^3.1.1",
+    "scraper-instagram": "^1.0.17",
     "sharp": "^0.27.0",
     "tiktok-downloader": "0.0.4",
     "tiktok-search": "^2.0.3",
-    "video-url-link": "git+https://github.com/YogaSakti/video-url-link.git",
+    "video-url-link": "^0.1.5",
     "webp-converter": "^2.3.1",
-    "xmlhttprequest": "^1.8.0"
+    "xmlhttprequest": "^1.8.0",
+    "ytdl-core": "^4.4.5",
+    "ytsr": "^3.2.4"
   }
 }

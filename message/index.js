@@ -43,6 +43,7 @@ const emojiUnicode = require('emoji-unicode')
 const moment = require('moment-timezone')
 moment.tz.setDefault('Asia/Jakarta').locale('id')
 const nhtai = require('../lib/nhentai')
+var remote = require('remote-file-size')
 /********** END OF MODULES **********/
 
 /********** UTILS **********/
@@ -76,6 +77,8 @@ const _bg = JSON.parse(fs.readFileSync('./database/user/card/background.json'))
 const _setting = JSON.parse(fs.readFileSync('./database/bot/setting.json'))
 let { memberLimit, groupLimit } = _setting
 /********** END OF DATABASES **********/
+
+function formatBytes(a, b = 2) { if (0 === a) return "0 Bytes"; const c = 0 > b ? 0 : b, d = Math.floor(Math.log(a) / Math.log(1024)); return parseFloat((a / Math.pow(1024, d)).toFixed(c)) + " " + ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"][d] }
 
 /********** MESSAGE HANDLER **********/
 module.exports = msgHandler = async (akie = new Client(), message) => {
@@ -319,7 +322,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
 
 
             case 'level':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isLevelingOn) return await akie.reply(from, ind.levelingNotOn(), id)
                 if (!isGroupMsg) return await akie.reply(from, ind.groupOnly(), id)
                 const userLevel = level.getLevelingLevel(sender.id, _level)
@@ -357,7 +360,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'leaderboard':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isLevelingOn) return await akie.reply(from, ind.levelingNotOn(), id)
                 if (!isGroupMsg) return await akie.reply(from.ind.groupOnly(), id)
                 _level.sort((a, b) => (a.xp < b.xp) ? 1 : -1)
@@ -376,7 +379,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'setbackground':
             case 'setbg':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isLevelingOn) return await akie.reply(from, ind.levelingNotOn(), id)
                 if (!isGroupMsg) return await akie.reply(from, ind.groupOnly(), id)
                 if (!isUrl(url)) return await akie.reply(from, ind.wrongFormat(), id)
@@ -389,7 +392,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
 
             // Downloader
             case 'joox':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 downloader.joox(q)
@@ -403,18 +406,17 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                         await akie.reply(from, 'Error!', id)
                     })
                 break
-            case 'igdl': // by: VideFrelan
-            case 'instadl':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+            case 'igpost':
+            case 'instapost':
                 if (!isUrl(url) && !url.includes('instagram.com')) return await akie.reply(from, ind.wrongFormat(), id)
-                await akie.reply(from, ind.wait(), id)
+                // await akie.reply(from, ind.wait(), id)
                 downloader.insta(url)
-                    .then(async ({ result }) => {
-                        for (let i = 0; i < result.post.length; i++) {
-                            if (result.post[i].type === "image") {
-                                await akie.sendFileFromUrl(from, result.post[i].urlDownload, 'igpostdl.jpg', `*...:* *Instagram Downloader* *:...*\n\nUsername: ${result.owner_username}\nCaption: ${result.caption}`, id)
-                            } else if (result.post[i].type === "video") {
-                                await akie.sendFileFromUrl(from, result.post[i].urlDownload, 'igpostdl.mp4', `*...:* *Instagram Downloader* *:...*\n\nUsername: ${result.owner_username}\nCaption: ${result.caption}`, id)
+                    .then(async (results) => {
+                        for (result of results.contents) {
+                            if (result.type === "photo") {
+                                await akie.sendFileFromUrl(from, result.url, 'igcontentsdl.jpg', `*❏* *Instagram Post Downloader* \n\n*Username*: ${results.author.username}\n*Caption*: ${results.caption}`, id)
+                            } else if (result.contents.type === "video") {
+                                await akie.sendFileFromUrl(from, result.url, 'igcontentsdl.mp4', `*❏* *Instagram Post Downloader* \n\n*Username*: ${results.author.username}\n*Caption*: ${results.caption}`, id)
                             }
                         }
                         console.log('Success sending Instagram media!')
@@ -426,7 +428,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'facebook':
             case 'fb':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(pushname), id)
+
                 if (!isUrl(url) && !url.includes('facebook.com')) return await akie.reply(from, `URL bukan dari facebook!`, id)
                 await akie.reply(from, ind.wait(), id)
                 downloader.fb(q)
@@ -440,20 +442,21 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'ytmp3':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
-                if (!isUrl(url) && !url.includes('youtu.be')) return await akie.reply(from, ind.wrongFormat(), id)
+
+                if (!isUrl(url) && !url.includes(['youtu.be', 'youtube.com'])) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 downloader.ytdl(url)
                     .then(async (res) => {
-                        if (res.status === 'error') {
-                            await akie.reply(from, res.pesan, id)
-                        } else if (Number(res.size.split(' MB')[0]) >= 30) {
-                            await akie.reply(from, ind.videoLimit(), id)
-                        } else {
-                            await akie.sendFileFromUrl(from, res.thumbnail, `${res.title}.jpg`, ind.ytFound(res), id)
-                            await akie.sendFileFromUrl(from, res.url_audio, `${res.title}.mp3`, '', id)
-                            console.log('Success sending YouTube video!')
-                        }
+                        var url = res.mp3
+                        remote(url, async (err, o) => {
+                            if (Number(formatBytes(o).split(' MB')[0] >= 30) || err) {
+                                await akie.reply(from, ind.videoLimit(), id)
+                            } else {
+                                await akie.sendFileFromUrl(from, res.thumb.url, `${res.title}.jpg`, ind.ytFound(res), id)
+                                await akie.sendFileFromUrl(from, res.mp3, `${res.title}.mp3`, '', id)
+                                console.log('Success sending YouTube video!')
+                            }
+                        })
                     })
                     .catch(async (err) => {
                         console.error(err)
@@ -461,20 +464,21 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'ytmp4':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isUrl(url) && !url.includes('youtu.be')) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 downloader.ytdl(url)
                     .then(async (res) => {
-                        if (res.status === 'error') {
-                            await akie.reply(from, res.pesan, id)
-                        } else if (Number(res.size.split(' MB')[0]) >= 30) {
-                            await akie.reply(from, ind.videoLimit(), id)
-                        } else {
-                            await akie.sendFileFromUrl(from, res.thumbnail, `${res.title}.jpg`, ind.ytFound(res), id)
-                            await akie.sendFileFromUrl(from, res.url_video, `${res.title}.mp4`, '', id)
-                            console.log('Success sending YouTube video!')
-                        }
+                        var url = res.mp4
+                        remote(url, async (err, o) => {
+                            if (Number(formatBytes(o).split(' MB')[0] >= 30) || err) {
+                                await akie.reply(from, ind.videoLimit(), id)
+                            } else {
+                                await akie.sendFileFromUrl(from, res.thumb.url, `${res.title}.jpg`, ind.ytFound(res), id)
+                                await akie.sendFileFromUrl(from, res.mp4, `${res.title}.mp4`, '', id)
+                                console.log('Success sending YouTube video!')
+                            }
+                        })
                     })
                     .catch(async (err) => {
                         console.error(err)
@@ -482,7 +486,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'tiktokpic':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 try {
@@ -498,7 +502,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'tiktoknowm': // by: VideFrelan
             case 'tktnowm':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isUrl(url) && !url.includes('tiktok.com')) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 downloader.tikNoWm(url)
@@ -514,7 +518,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'tiktok':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isUrl(url) && !url.includes('tiktok.com')) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 const tik = new JSTikTok(url);
@@ -539,7 +543,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'twitter':
             case 'twt':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isUrl(url) && !url.includes('twitter.com')) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 downloader.tweet(url)
@@ -573,12 +577,12 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
 
             // Misc
             case 'say':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.sendText(from, q)
                 break
             case 'afk':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isGroupMsg) return await akie.reply(from, ind.groupOnly(), id)
                 if (isAfkOn) return await akie.reply(from, ind.afkOnAlready(), id)
                 const reason = q ? q : 'Nothing.'
@@ -587,7 +591,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'lyric':
             case 'lirik':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 misc.lirik(q)
@@ -602,7 +606,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'shortlink':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isUrl(url)) return await akie.reply(from, ind.wrongFormat(), id)
                 const urlShort = await misc.shortener(url)
                 await akie.reply(from, ind.wait(), id)
@@ -611,7 +615,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'wikipedia':
             case 'wiki':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 misc.wiki(q)
@@ -630,7 +634,6 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'instastory': //By: VideFrelan
             case 'igstory':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
                 if (!q) return akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 misc.its(q)
@@ -643,7 +646,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'kbbi':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 misc.kbbi(q)
@@ -662,7 +665,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'linesticker':
             case 'linestiker':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 await akie.reply(from, ind.wait(), id)
                 misc.linesticker()
                     .then(async ({ result }) => {
@@ -680,7 +683,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'jadwalsholat':
             case 'jadwalsolat':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 misc.jadwalSholat(q)
@@ -702,7 +705,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'gempa':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 await akie.reply(from, ind.wait(), id)
                 misc.bmkg()
                     .then(async ({ kedalaman, koordinat, lokasi, magnitude, map, potensi, waktu }) => {
@@ -716,7 +719,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'igstalk':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 misc.igStalk(q)
@@ -736,7 +739,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'gsmarena':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 try {
@@ -752,7 +755,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'receipt':
             case 'resep':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 try {
@@ -768,7 +771,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'findsticker':
             case 'findstiker':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 try {
@@ -786,7 +789,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'movie':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 misc.movie(q)
@@ -805,7 +808,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'cekongkir': // By: VideFrelan
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 const kurir = q.substring(0, q.indexOf('|') - 1)
@@ -827,7 +830,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'distance':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 const kotaAsal = q.substring(0, q.indexOf('|') - 1)
                 const kotaTujuan = q.substring(q.lastIndexOf('|') + 2)
@@ -843,17 +846,20 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'ytsearch':
             case 'yts':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 try {
                     misc.ytSearch(q)
-                        .then(async ({ result }) => {
-                            for (let i = 0; i < 5; i++) {
-                                const { urlyt, image, title, channel, duration, views } = await result[i]
-                                await akie.sendFileFromUrl(from, image, `${title}.jpg`, ind.ytResult(urlyt, title, channel, duration, views), id)
+                        .then(async (results) => {
+                            for (result of results.items) {
+                                const { id, thumbnail, title, duration, views } = await result
+                                await akie.sendFileFromUrl(from, thumbnail.url, `${title}.jpg`, ind.ytResult('https://youtube.com/watch?v=' + id, title, duration, views), id)
                                 console.log('Success sending YouTube results!')
                             }
+                        }).catch(async (err) => {
+                            console.error(err)
+                            await akie.reply(from, 'Error!', id)
                         })
                 } catch (err) {
                     console.error(err)
@@ -861,7 +867,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'tts':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 const speech = q.substring(q.indexOf('|') + 2)
                 const ptt = tts(ar[0])
@@ -877,7 +883,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'playstore':
             case 'ps':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 try {
@@ -895,7 +901,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'math':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 if (typeof mathjs.evaluate(q) !== "number") {
                     await akie.reply(from, ind.notNum(q), id)
@@ -904,7 +910,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'shopee':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 const namaBarang = q.substring(0, q.indexOf('|') - 1)
                 const jumlahBarang = q.substring(q.lastIndexOf('|') + 2)
@@ -924,21 +930,21 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'mutual':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (isGroupMsg) return await akie.reply(from, 'Command ini tidak bisa digunakan di dalam grup!', id)
                 await akie.reply(from, 'Looking for a partner...', id)
                 await akie.sendContact(from, register.getRegisteredRandomId(_registered))
                 await akie.sendText(from, `Partner found: 🙉\n*${prefix}next* — find a new partner`)
                 break
             case 'next':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (isGroupMsg) return await akie.reply(from, 'Command ini tidak bisa digunakan di dalam grup!', id)
                 await akie.reply(from, 'Looking for a partner...', id)
                 await akie.sendContact(from, register.getRegisteredRandomId(_registered))
                 await akie.sendText(from, `Partner found: 🙉\n*${prefix}next* — find a new partner`)
                 break
             case 'tafsir':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (args.length === 0) return akie.reply(from, `Untuk menampilkan ayat Al-Qur'an tertentu beserta tafsir dan terjemahannya\ngunakan ${prefix}tafsir surah ayat\n\nContoh: ${prefix}tafsir Al-Mulk 10`, id)
                 await akie.reply(from, ind.wait(), id)
                 const responSurah = await axios.get('https://raw.githubusercontent.com/VideFrelan/words/main/tafsir.txt')
@@ -958,7 +964,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'listsurah':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 await akie.reply(from, ind.wait(), id)
                 misc.listSurah()
                     .then(async ({ result }) => {
@@ -975,7 +981,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'surah':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (args.length !== 1) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 misc.getSurah(args[0])
@@ -989,7 +995,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'motivasi':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 misc.motivasi()
                     .then(async (body) => {
                         const motivasiSplit = body.split('\n')
@@ -1002,14 +1008,20 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'play':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 misc.ytPlay(q)
-                    .then(async ({ result }) => {
-                        if (Number(result.size.split(' MB')[0]) >= 10.00) return akie.sendFileFromUrl(from, result.image, `${result.title}.jpg`, `Judul: ${result.title}\nSize: *${result.size}*\n\nGagal, Maksimal video size adalah *10MB*!`, id)
-                        await akie.sendFileFromUrl(from, result.image, `${result.title}.jpg`, ind.ytPlay(result), id)
-                        await akie.sendFileFromUrl(from, result.mp3, `${result.title}.mp3`, '', id, null, true, true)
+                    .then(async (result) => {
+                        remote(result.mp3, async (err, o) => {
+                            if (Number(formatBytes(o).split(' MB')[0]) >= 10.00) {
+                                return akie.sendFileFromUrl(from, result.thumb.url, `${result.title}.jpg`, `Judul: ${result.title}\nSize: *${formatBytes(o)}*\n\nGagal, Maksimal video size adalah *10MB*!`, id)
+                            } else {
+                                await akie.sendFileFromUrl(from, result.thumb.url, `${result.title}.jpg`, ind.ytPlay(result), id)
+                                await akie.sendFileFromUrl(from, result.mp3, `${result.title}.mp3`, '', id, null, true, true)
+                            }
+                        })
+
                     })
                     .catch(async (err) => {
                         console.error(err)
@@ -1017,7 +1029,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'whois':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (args.length !== 1) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 misc.whois(args[0])
@@ -1030,7 +1042,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'sms':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q.includes('|')) return await akie.reply(from, ind.wrongFormat(), id)
                 const pesanPengirim = q.substring(0, q.indexOf('|') - 1)
                 const nomorPenerima = q.substring(q.lastIndexOf('|') + 2)
@@ -1047,11 +1059,11 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'toxic':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 await akie.reply(from, toxic(), id)
                 break
             case 'alkitab':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 misc.alkitab(q)
@@ -1065,7 +1077,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'reminder':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q.includes('|')) return await akie.reply(from, ind.wrongFormat(), id)
                 const timeRemind = q.substring(0, q.indexOf('|') - 1)
                 const messRemind = q.substring(q.lastIndexOf('|') + 2)
@@ -1083,7 +1095,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'imagetourl':
             case 'imgtourl':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (isMedia && isImage || isQuotedImage) {
                     await akie.reply(from, ind.wait(), id)
                     const encryptMedia = isQuotedImage ? quotedMsg : message
@@ -1095,7 +1107,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'infohoax':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 await akie.reply(from, ind.wait(), id)
                 misc.infoHoax()
                     .then(async ({ result }) => {
@@ -1113,7 +1125,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'trending':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 await akie.reply(from, ind.wait(), id)
                 misc.trendingTwt()
                     .then(async ({ result }) => {
@@ -1131,7 +1143,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'jobseek':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 await akie.reply(from, ind.wait(), id)
                 misc.jobSeek()
                     .then(async ({ result }) => {
@@ -1149,7 +1161,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'spamcall':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (args.length !== 1) return await akie.reply(from, ind.wrongFormat(), id)
                 if (isNaN(Number(args[0]))) return await akie.reply(from, ind.wrongFormat())
                 await akie.reply(from, ind.wait(), id)
@@ -1168,7 +1180,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'spamsms':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (args.length !== 2) return await akie.reply(from, ind.wrongFormat(), id)
                 if (isNaN(Number(args[0])) && isNaN(Number(args[1]))) return await akie.reply(from, ind.wrongFormat(), id)
                 if (Number(args[1]) > 10) return await akie.reply(from, 'Maximum 10 SMS.', id)
@@ -1195,7 +1207,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 const levelMenu = level.getLevelingLevel(sender.id, _level)
                 const xpMenu = level.getLevelingXp(sender.id, _level)
                 const reqXpMenu = 200 * (Math.pow(2, levelMenu) - 1)
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (args[0] === '1') {
                     await akie.sendText(from, ind.menuDownloader())
                 } else if (args[0] === '2') {
@@ -1225,11 +1237,11 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'rules':
             case 'rule':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 await akie.sendText(from, ind.rules())
                 break
             case 'nsfw':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isGroupMsg) return await akie.reply(from, ind.groupOnly(), id)
                 if (!isGroupAdmins) return await akie.reply(from, ind.adminOnly(), id)
                 if (ar[0] === 'enable') {
@@ -1246,11 +1258,11 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'status':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 await akie.sendText(from, `*RAM*: ${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} MB / ${Math.round(os.totalmem / 1024 / 1024)} MB\n*CPU*: ${os.cpus()[0].model}`)
                 break
             case 'listblock':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 let block = ind.listBlock(blockNumber)
                 for (let i of blockNumber) {
                     block += `@${i.replace('@c.us', '')}\n`
@@ -1258,23 +1270,23 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 await akie.sendTextWithMentions(from, block)
                 break
             case 'ownerbot':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 await akie.sendContact(from, ownerNumber)
                 break
             case 'ping':
             case 'p':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 await akie.sendText(from, `Pong!\nSpeed: ${processTime(t, moment())} secs`)
                 break
             case 'delete':
             case 'del':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!quotedMsg) return await akie.reply(from, ind.wrongFormat(), id)
                 if (!quotedMsgObj.fromMe) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.deleteMessage(quotedMsgObj.chatId, quotedMsgObj.id, false)
                 break
             case 'report':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.emptyMess(), id)
                 const lastReport = limit.getLimit(sender.id, _limit)
                 if (lastReport !== undefined && cd - (Date.now() - lastReport) > 0) {
@@ -1292,10 +1304,10 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'tos':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 break
             case 'join':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isUrl(url) && !url.includes('chat.whatsapp.com')) return await akie.reply(from, ind.wrongFormat(), id)
                 const checkInvite = await akie.inviteInfo(url)
                 if (isOwner) {
@@ -1317,14 +1329,14 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'premiumcheck':
             case 'cekpremium':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isPremium) return await akie.reply(from, ind.notPremium(), id)
                 const cekExp = ms(premium.getPremiumExpired(sender.id, _premium) - Date.now())
                 await akie.reply(from, `*「 PREMIUM EXPIRE 」*\n\n➸ *ID*: ${sender.id}\n➸ *Premium left*: ${cekExp.days} day(s) ${cekExp.hours} hour(s) ${cekExp.minutes} minute(s)`, id)
                 break
             case 'premiumlist':
             case 'listpremium':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 let listPremi = '「 *PREMIUM USER LIST* 」\n\n'
                 let nomorList = 0
                 const arrayPremi = []
@@ -1336,7 +1348,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 await akie.reply(from, listPremi, id)
                 break
             case 'getpic':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (mentionedJidList.length !== 0) {
                     const userPic = await akie.getProfilePicFromServer(mentionedJidList[0])
                     if (userPic === undefined) {
@@ -1358,7 +1370,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'serial':
-                if (!isRegistered) return await akie.reply(from, ind.registered(), id)
+
                 if (isGroupMsg) return await akie.reply(from, ind.pcOnly(), id)
                 if (args.length !== 1) return await akie.reply(from, ind.wrongFormat(), id)
                 const serials = args[0]
@@ -1375,7 +1387,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
 
             // Weeb zone
             case 'neko':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 await akie.reply(from, ind.wait(), id)
                 console.log('Getting neko image...')
                 await akie.sendFileFromUrl(from, (await neko.sfw.neko()).url, 'neko.jpg', '', null, null, true)
@@ -1387,7 +1399,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'wallpaper':
             case 'wp':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 await akie.reply(from, ind.wait(), id)
                 console.log('Getting wallpaper image...')
                 await akie.sendFileFromUrl(from, (await neko.sfw.wallpaper()).url, 'wallpaper.jpg', '', null, null, true)
@@ -1398,7 +1410,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'kemono':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 await akie.reply(from, ind.wait(), id)
                 console.log('Getting kemonomimi image...')
                 await akie.sendFileFromUrl(from, (await neko.sfw.kemonomimi()).url, 'kemono.jpg', '', null, null, true)
@@ -1409,7 +1421,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'kusonime':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 weeaboo.anime(q)
@@ -1428,7 +1440,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'komiku':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 weeaboo.manga(q)
@@ -1443,7 +1455,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'wait':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (isMedia && isImage || isQuotedImage) {
                     await akie.reply(from, ind.wait(), id)
                     const encryptMedia = isQuotedImage ? quotedMsg : message
@@ -1477,7 +1489,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'source':
             case 'sauce':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (isMedia && isImage || isQuotedImage) {
                     await akie.reply(from, ind.wait(), id)
                     const encryptMedia = isQuotedImage ? quotedMsg : message
@@ -1505,7 +1517,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'waifu':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 await akie.reply(from, ind.wait(), id)
                 weeaboo.waifu(false)
                     .then(async ({ url }) => {
@@ -1518,7 +1530,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'anitoki':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 await akie.reply(from, ind.wait(), id)
                 weeaboo.anitoki()
                     .then(async ({ result }) => {
@@ -1534,7 +1546,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'neonime':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 await akie.reply(from, ind.wait(), id)
                 weeaboo.neonime()
                     .then(async ({ status, result }) => {
@@ -1553,7 +1565,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'anoboy':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 await akie.reply(from, ind.wait(), id)
                 weeaboo.anoboy()
                     .then(async ({ result }) => {
@@ -1572,7 +1584,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
 
             // Fun
             case 'asupan':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 await akie.reply(from, ind.wait(), id)
                 fun.asupan()
                     .then(async (body) => {
@@ -1587,7 +1599,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'chika'://Piyobot
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 await akie.reply(from, ind.wait(), id)
                 fun.chika()
                     .then(async (body) => {
@@ -1602,7 +1614,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'citacita': // Piyobot
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 fun.cita()
                     .then(async (body) => {
                         const cita = body.split('\n')
@@ -1616,7 +1628,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'profile':
             case 'me':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (quotedMsg) {
                     const getQuoted = quotedMsgObj.sender.id
                     const profilePic = await akie.getProfilePicFromServer(getQuoted)
@@ -1655,7 +1667,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'hartatahta':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 console.log('Creating harta tahta text...')
@@ -1667,7 +1679,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'calendar':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (isMedia && isImage || isQuotedImage) {
                     await akie.reply(from, ind.wait(), id)
                     const encryptMedia = isQuotedImage ? quotedMsg : message
@@ -1688,7 +1700,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'partner':
             case 'pasangan':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 const nama = q.substring(0, q.indexOf('|') - 1)
                 const pasangan = q.substring(q.lastIndexOf('|') + 2)
@@ -1705,7 +1717,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'zodiac':
             case 'zodiak':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (args.length !== 1) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 fun.zodiak(args[0])
@@ -1725,7 +1737,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'write':
             case 'nulis':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 console.log('Creating writing...')
@@ -1737,7 +1749,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'missing':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 const atas = q.substring(0, q.indexOf('|') - 1)
                 const tengah = q.substring(q.indexOf('|') + 2, q.lastIndexOf('|') - 1)
@@ -1761,7 +1773,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'ffbanner': // By: VideFrelan
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q.includes('|')) return akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 console.log('Creating FF banner...')
@@ -1771,7 +1783,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 console.log('Success!')
                 break
             case 'fflogo': // By: VideFrelan
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q.includes('|')) return akie.reply(from, `Untuk membuat Logo Karakter Freefire\ngunakan ${prefix}fflogo karakter | teks\n\nContoh: ${prefix}fflogo alok | Fikri gans`, id)
                 await akie.reply(from, ind.wait(), id)
                 console.log('Creating FF logo...')
@@ -1782,7 +1794,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'text3d':
             case '3dtext':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 console.log('Creating 3D text...')
@@ -1790,7 +1802,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 console.log('Success creating 3D text!')
                 break
             case 'valentine':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 if (isMedia && isImage || isQuotedImage) {
                     await akie.reply(from, ind.wait(), id)
@@ -1816,7 +1828,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'simi'://By: VideFrelan
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isGroupMsg) return await akie.reply(from, ind.groupOnly(), id)
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 fun.simi(q)
@@ -1830,7 +1842,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'glitchtext':
             case 'glitext':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 const teks1 = q.substring(0, q.indexOf('|') - 1)
                 const teks2 = q.substring(q.lastIndexOf('|') + 2)
@@ -1844,7 +1856,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'phmaker':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 const kiri = q.substring(0, q.indexOf('|') - 1)
                 const kanan = q.substring(q.lastIndexOf('|') + 2)
@@ -1858,7 +1870,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'blackpink':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 console.log('Creating Blackpink text...')
@@ -1870,7 +1882,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'galaxy':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 console.log('Creating galaxy text...')
@@ -1882,12 +1894,12 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'tod':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 await akie.reply(from, 'Sebelum bermain berjanjilah akan melaksanakan apapun perintah yang diberikan.', id)
                 await akie.sendText(from, `Silakan ketik *${prefix}truth* atau *${prefix}dare*`)
                 break
             case 'weton':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q.includes('|')) return await akie.reply(from, ind.wrongFormat(), id)
                 const tgl = q.substring(0, q.indexOf('|') - 1)
                 const bln = q.substring(q.indexOf('|') + 2, q.lastIndexOf('|') - 1)
@@ -1905,7 +1917,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'truth':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 fun.truth()
                     .then(async (body) => {
                         const tod = body.split('\n')
@@ -1918,7 +1930,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'dare':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 fun.dare()
                     .then(async (body) => {
                         const dare = body.split('\n')
@@ -1931,7 +1943,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     })
                 break
             case 'triggered':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 try {
                     if (isMedia && isImage) {
                         const ppRaw = await decryptMedia(message, uaOverride)
@@ -1964,7 +1976,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'kiss':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 try {
                     if (isMedia && isImage) {
                         const ppRaw = await akie.getProfilePicFromServer(sender.id)
@@ -2003,7 +2015,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'phcomment':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q.includes('|')) return await akie.reply(from, ind.wrongFormat(), id)
                 const usernamePh = q.substring(0, q.indexOf('|') - 1)
                 const commentPh = q.substring(q.lastIndexOf('|') + 2)
@@ -2021,7 +2033,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 console.log('Success creating image!')
                 break
             case 'readmore':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q.includes('|')) return await akie.reply(from, ind.wrongFormat(), id)
                 const rawReadMore = `a
 
@@ -2035,7 +2047,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'neontext':
             case 'neon':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q.includes('|')) return await akie.reply(from, ind.wrongFormat(), id)
                 const atasnya = q.substring(0, q.indexOf('|') - 1)
                 const tengahnya = q.substring(q.indexOf('|') + 2, q.lastIndexOf('|') - 1)
@@ -2048,7 +2060,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
             // Sticker
             case 'stickerwm': // By Slavyan
             case 'stcwm':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isOwner) return await akie.reply(from, ind.ownerOnly(), id)
                 if (!q.includes('|')) return await akie.reply(from, ind.wrongFormat(), id)
                 if (isMedia && isImage || isQuotedImage) {
@@ -2085,7 +2097,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'stickermeme':
             case 'stcmeme':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q.includes('|')) return await akie.reply(from, ind.wrongFormat(), id)
                 if (isMedia && isImage || isQuotedImage) {
                     await akie.reply(from, ind.wait(), id)
@@ -2119,7 +2131,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'sticker':
             case 'stiker':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (isMedia && isImage || isQuotedImage) {
                     await akie.reply(from, ind.wait(), id)
                     const encryptMedia = isQuotedImage ? quotedMsg : message
@@ -2148,7 +2160,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'stickergif':
             case 'stikergif':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (isMedia && type === 'video' || mimetype === 'image/gif') {
                     await akie.reply(from, ind.wait(), id)
                     try {
@@ -2183,7 +2195,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'stickerlightning':
             case 'slightning':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (isMedia && isImage || isQuotedImage) {
                     await akie.reply(from, ind.wait(), id)
                     const encryptMedia = isQuotedImage ? quotedMsg : message
@@ -2207,7 +2219,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'stickerfire':
             case 'sfire':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (isMedia && isImage || isQuotedImage) {
                     await akie.reply(from, ind.wait(), id)
                     const encryptMedia = isQuotedImage ? quotedMsg : message
@@ -2231,7 +2243,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'ttg':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 await akie.reply(from, ind.wait(), id)
                 await akie.sendStickerfromUrl(from, `https://api.vhtear.com/textxgif?text=${q}&apikey=${config.vhtear}`)
@@ -2244,7 +2256,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
             case 'stickertoimg':
             case 'stikertoimg':
             case 'toimg':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (isQuotedSticker) {
                     await akie.reply(from, ind.wait(), id)
                     try {
@@ -2261,7 +2273,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'emojisticker':
             case 'emojistiker':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (args.length !== 1) return akie.reply(from, ind.wrongFormat(), id)
                 const emoji = emojiUnicode(args[0])
                 await akie.reply(from, ind.wait(), id)
@@ -2283,7 +2295,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
             case 'mlewds':
             case 'mlewd':
                 // Premium feature, contact the owner.
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (isGroupMsg) {
                     if (!isNsfw) return await akie.reply(from, ind.notNsfw(), id)
                     if (!isPremium) return await akie.reply(from, ind.notPremium(), id)
@@ -2296,7 +2308,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
             case 'multifetish':
             case 'mfetish':
                 // Premium feature, contact the owner.
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (isGroupMsg) {
                     if (!isNsfw) return await akie.reply(from, ind.notNsfw(), id)
                     if (!isPremium) return await akie.reply(from, ind.notPremium(), id)
@@ -2308,7 +2320,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'lewds':
             case 'lewd':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (isGroupMsg) {
                     if (!isNsfw) return await akie.reply(from, ind.notNsfw(), id)
                     await akie.reply(from, ind.wait(), id)
@@ -2335,7 +2347,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'fetish':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (ar.length !== 1) return await akie.reply(from, ind.wrongFormat(), id)
                 if (isGroupMsg) {
                     if (!isNsfw) return await akie.reply(from, ind.notNsfw(), id)
@@ -2458,7 +2470,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'nhentai':
             case 'nh':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (args.length !== 1) return await akie.reply(from, ind.wrongFormat(), id)
                 if (isNaN(Number(args[0]))) return await akie.reply(from, ind.wrongFormat(), id)
                 if (isGroupMsg) {
@@ -2525,7 +2537,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 break
             case 'nhdl':
                 // Premium feature, contact the owner.
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (isGroupMsg) {
                     if (!isNsfw) return await akie.reply(from, ind.notNsfw(), id)
                     if (!isPremium) return await akie.reply(from, ind.notPremium(), id)
@@ -2536,7 +2548,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'nhsearch':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (args.length !== 1) return await akie.reply(from, ind.wrongFormat(), id)
                 if (isGroupMsg) {
                     if (!isNsfw) return await akie.reply(from, ind.notNsfw(), id)
@@ -2576,7 +2588,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'nekopoi':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (isGroupMsg) {
                     if (!isNsfw) return await akie.reply(from, ind.notNsfw(), id)
                     await akie.reply(from, ind.wait(), id)
@@ -2609,7 +2621,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'nekosearch':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!q) return await akie.reply(from, ind.wrongFormat(), id)
                 if (isGroupMsg) {
                     if (!isNsfw) return await akie.reply(from, ind.notNsfw(), id)
@@ -2643,7 +2655,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'waifu18':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (isGroupMsg) {
                     if (!isNsfw) return await akie.reply(from, ind.notNsfw(), id)
                     await akie.reply(from, ind.wait(), id)
@@ -2670,7 +2682,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'phdl':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (isGroupMsg) {
                     if (!isNsfw) return await akie.reply(from, ind.notNsfw(), id)
                     if (!isUrl(url) && !url.includes('pornhub.com')) return await akie.reply(from, ind.wrongFormat(), id)
@@ -2721,7 +2733,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'yuri':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (isGroupMsg) {
                     if (!isNsfw) return await akie.reply(from, ind.notNsfw(), id)
                     await akie.reply(from, ind.wait(), id)
@@ -2732,7 +2744,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'lewdavatar':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (isGroupMsg) {
                     if (!isNsfw) return await akie.reply(from, ind.notNsfw(), id)
                     await akie.reply(from, ind.wait(), id)
@@ -2743,7 +2755,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'femdom':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (isGroupMsg) {
                     if (!isNsfw) return await akie.reply(from, ind.notNsfw(), id)
                     await akie.reply(from, ind.wait(), id)
@@ -2757,7 +2769,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
             // Moderation command
             case 'mutegc':
             case 'mute':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isGroupMsg) return akie.reply(from, ind.groupOnly(), id)
                 if (!isGroupAdmins) return akie.reply(from, ind.adminOnly(), id)
                 if (!isBotGroupAdmins) return akie.reply(from, ind.botNotAdmin(), id)
@@ -2772,7 +2784,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'add':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isGroupMsg) return await akie.reply(from, ind.groupOnly(), id)
                 if (!isGroupAdmins) return await akie.reply(from, ind.adminOnly(), id)
                 if (!isBotGroupAdmins) return await akie.reply(from, ind.botNotAdmin(), id)
@@ -2786,7 +2798,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'kick':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isGroupMsg) return await akie.reply(from, ind.groupOnly(), id)
                 if (!isGroupAdmins) return await akie.reply(from, ind.adminOnly(), id)
                 if (!isBotGroupAdmins) return await akie.reply(from, ind.botNotAdmin(), id)
@@ -2799,7 +2811,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'promote':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isGroupMsg) return await akie.reply(from, ind.groupOnly(), id)
                 if (!isGroupAdmins) return await akie.reply(from, ind.adminOnly(), id)
                 if (!isBotGroupAdmins) return await akie.reply(from, ind.botNotAdmin(), id)
@@ -2810,7 +2822,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 await akie.reply(from, ind.ok(), id)
                 break
             case 'demote':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isGroupMsg) return await akie.reply(from, ind.groupOnly(), id)
                 if (!isGroupAdmins) return await akie.reply(from, ind.adminOnly(), id)
                 if (!isBotGroupAdmins) return await akie.reply(from, ind.botNotAdmin(), id)
@@ -2821,14 +2833,14 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 await akie.reply(from, ind.ok(), id)
                 break
             case 'leave':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isGroupMsg) return await akie.reply(from, ind.groupOnly(), id)
                 if (!isGroupAdmins) return await akie.reply(from, ind.adminOnly(), id)
                 await akie.sendText(from, 'Sayounara~ 👋')
                 await akie.leaveGroup(groupId)
                 break
             case 'everyone': // Thanks to ArugaZ
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isGroupMsg) return await akie.reply(from, ind.groupOnly(), id)
                 if (!isGroupAdmins) return await akie.reply(from, ind.adminOnly(), id)
                 const groupMem = await akie.getGroupMembers(groupId)
@@ -2854,7 +2866,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'groupicon':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isGroupMsg) return await akie.reply(from, ind.groupOnly(), id)
                 if (!isGroupAdmins) return await akie.reply(from, ind.adminOnly(), id)
                 if (!isBotGroupAdmins) return akie.reply(from, ind.botNotAdmin(), id)
@@ -2871,7 +2883,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'antilink':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isGroupMsg) return await akie.reply(from, ind.groupOnly(), id)
                 if (!isGroupAdmins) return await akie.reply(from, ind.adminOnly(), id)
                 if (!isBotGroupAdmins) return await akie.reply(from, ind.botNotAdmin(), id)
@@ -2889,7 +2901,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'leveling':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isGroupMsg) return await akie.reply(from, ind.groupOnly(), id)
                 if (!isGroupAdmins) return await akie.reply(from, ind.adminOnly(), id)
                 if (ar[0] === 'enable') {
@@ -2906,7 +2918,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'welcome':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isGroupMsg) return await akie.reply(from, ind.groupOnly(), id)
                 if (!isGroupAdmins) return await akie.reply(from, ind.adminOnly(), id)
                 if (ar[0] === 'enable') {
@@ -2925,7 +2937,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
             case 'autosticker':
             case 'autostiker':
             case 'autostik':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isGroupMsg) return await akie.reply(from, ind.groupOnly(), id)
                 if (!isGroupAdmins) return await akie.reply(from, ind.adminOnly(), id)
                 if (ar[0] === 'enable') {
@@ -2942,7 +2954,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                 }
                 break
             case 'antinsfw':
-                if (!isRegistered) return await akie.reply(from, ind.notRegistered(), id)
+
                 if (!isGroupMsg) return await akie.reply(from, ind.groupOnly(), id)
                 if (!isGroupAdmins) return await akie.reply(from, ind.adminOnly(), id)
                 if (!isBotGroupAdmins) return await akie.reply(from, ind.botNotAdmin(), id)

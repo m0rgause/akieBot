@@ -92,7 +92,7 @@ exports.botNotAdmin = () => {
 }
 
 exports.ytFound = (res) => {
-    return `*Video ditemukan!*\n\n➸ *Judul*: ${res.title}\n➸ *Deskripsi*:\n${res.desc}\n➸ *Durasi*: ${res.duration} menit\n\nMedia sedang dikirim, mohon tunggu...`
+    return `*Video ditemukan!*\n\n➸ *Judul*: ${res.title}\n➸ *Durasi*: ${res.duration} menit\n\nMedia sedang dikirim, mohon tunggu...`
 }
 
 exports.notRegistered = () => {
@@ -140,8 +140,8 @@ exports.receipt = (result) => {
     return `${result.title}\n\n${result.desc}\n\n*Bahan*: ${result.bahan}\n\n*Cara membuat*:\n${result.cara}`
 }
 
-exports.ytResult = (urlyt, title, channel, duration, views) => {
-    return `➸ *Judul*: ${title}\n➸ *Channel*: ${channel}\n➸ *Durasi*: ${duration}\n➸ *Views*: ${views}\n➸ *Link*: ${urlyt}`
+exports.ytResult = (urlyt, title, duration, views) => {
+    return `➸ *Judul*: ${title}\n➸ *Durasi*: ${duration}\n➸ *Views*: ${views}\n➸ *Link*: ${urlyt}`
 }
 
 exports.profile = (username, status, premi, benet, adm, level, requiredXp, xp) => {
@@ -277,7 +277,7 @@ exports.registeredNotFound = (serial) => {
 }
 
 exports.ytPlay = (result) => {
-    return `*「 PLAY 」*\n\n➸ *Judul*: ${result.title}\n➸ *Durasi*: ${result.duration}\n➸ *Link*: ${result.url}\n\nsedang dikirim,bentar a...`
+    return `*「 PLAY 」*\n\n➸ *Judul*: ${result.title}\n➸ *Durasi*: ${result.duration}\n➸ *Link*: ${result.video_url}\n\nsedang dikirim,bentar a...`
 }
 exports.pcOnly = () => {
     return `Command ini hanya bisa digunakan di dalam private chat saja!`
