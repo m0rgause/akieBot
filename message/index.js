@@ -43,7 +43,8 @@ const emojiUnicode = require('emoji-unicode')
 const moment = require('moment-timezone')
 moment.tz.setDefault('Asia/Jakarta').locale('id')
 const nhtai = require('../lib/nhentai')
-var remote = require('remote-file-size')
+const remote = require('remote-file-size')
+const mime = require('mime-types')
 /********** END OF MODULES **********/
 
 /********** UTILS **********/
@@ -69,6 +70,7 @@ const _autosticker = JSON.parse(fs.readFileSync('./database/group/autosticker.js
 const _ban = JSON.parse(fs.readFileSync('./database/bot/banned.json'))
 const _premium = JSON.parse(fs.readFileSync('./database/bot/premium.json'))
 const _registered = JSON.parse(fs.readFileSync('./database/bot/registered.json'))
+const _vn = JSON.parse(fs.readFileSync('./database/user/vn.json'))
 const _level = JSON.parse(fs.readFileSync('./database/user/level.json'))
 const _limit = JSON.parse(fs.readFileSync('./database/user/limit.json'))
 const _afk = JSON.parse(fs.readFileSync('./database/user/afk.json'))
@@ -102,6 +104,7 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
         const args = body.trim().split(/ +/).slice(1)
         const uaOverride = config.uaOverride
         const q = args.join(' ')
+        const q2 = args.length
         const ar = args.map((v) => v.toLowerCase())
         const url = args.length !== 0 ? args[0] : ''
 
@@ -1106,6 +1109,42 @@ module.exports = msgHandler = async (akie = new Client(), message) => {
                     await akie.reply(from, ind.wrongFormat(), id)
                 }
                 break
+            case 'savevn':
+                const encryptMedia = quotedMsg
+                const mediaData = await decryptMedia(encryptMedia)
+                const p = args.slice(1, q2).join(' ');
+                const pref = (typeof args[0] === 'undefined') ? await akie.reply(from, ind.wrongFormat(), id) : args[0]
+                const desc = (typeof args[1] === 'undefined') ? await akie.reply(from, ind.wrongFormat(), id) : p
+                for (list of _vn) {
+                    if (list.prefix === pref) await akie.reply(from, `*${pref}* sudah ada, silahkan gunakan nama lain a.`)
+                }
+                const obj = { prefix: pref, description: desc, file: `${pref}.${mime.extension(encryptMedia.mimetype)}` }
+                _vn.push(obj)
+                fs.writeFileSync('./database/user/vn.json', JSON.stringify(_vn));
+                fs.writeFile(`./temp/${pref}.${mime.extension(encryptMedia.mimetype)}`, mediaData, (async (err) => {
+                    if (err) console.error(err)
+                    await akie.reply(from, `Voice note disimpan dengan: \n*Command*: ${pref}\n*Description*: ${desc}\nKetik *${prefix}listvn* untuk melihat list vn`, id)
+                    console.log("file saved")
+                })
+                )
+                break
+            case 'listvn':
+                var text = `┌──┤ LIST VN`
+                for (list of _vn) {
+                    text += `
+├ *Nama*:  ${list.prefix}
+├ *Desc*: ${list.description}
+├ Follow IG @_kiki.af`
+                }
+                await akie.reply(from, text, id)
+                break;
+            case 'getvn':
+                const vn = args[0]
+                for (list of _vn) {
+                    if (list.prefix === vn) await akie.sendPtt(from, `./temp/${list.file}`, id)
+                }
+                await akie.reply(from, 'VN tidak ditemukan a~')
+                break;
             case 'infohoax':
 
                 await akie.reply(from, ind.wait(), id)
